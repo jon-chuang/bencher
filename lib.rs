@@ -48,7 +48,7 @@
 //!     bench.iter(|| {
 //!         vec![0u8; N]
 //!     });
-//! 
+//!
 //!     bench.bytes = N as u64;
 //! }
 //!
@@ -632,9 +632,12 @@ impl Bencher {
     pub fn auto_bench<F>(&mut self, mut f: F) -> stats::Summary
         where F: FnMut(&mut Bencher)
     {
+        println!("autobenching");
         // Initial bench run to get ballpark figure.
         let mut n = 1;
         self.bench_n(n, |x| f(x));
+
+        println!("{:?}", self.ns_per_iter());
 
         // Try to estimate iter count for 1ms falling back to 1m
         // iterations if first run took < 1ns.
@@ -652,9 +655,12 @@ impl Bencher {
             n = 1;
         }
 
+        println!("n: {:?}", n);
+
         let mut total_run = Duration::new(0, 0);
         let samples: &mut [f64] = &mut [0.0_f64; 50];
         loop {
+            println!("looping");
             let loop_start = Instant::now();
 
             for p in &mut *samples {
@@ -665,6 +671,8 @@ impl Bencher {
             stats::winsorize(samples, 5.0);
             let summ = stats::Summary::new(samples);
 
+            println!("n stats done");
+
             for p in &mut *samples {
                 self.bench_n(5 * n, |x| f(x));
                 *p = self.ns_per_iter() as f64;
@@ -674,11 +682,13 @@ impl Bencher {
             let summ5 = stats::Summary::new(samples);
             let loop_run = loop_start.elapsed();
 
+            println!("5n stats done");
+
             // If we've run for 100ms and seem to have converged to a
             // stable median.
             if loop_run > Duration::from_millis(100) && summ.median_abs_dev_pct < 1.0 &&
                summ.median - summ5.median < summ5.median_abs_dev {
-                return summ5;
+                   return summ5;
             }
 
             total_run += loop_run;
@@ -686,6 +696,8 @@ impl Bencher {
             if total_run > Duration::from_secs(3) {
                 return summ5;
             }
+
+            println!("{:?}", total_run);
 
             // If we overflow here just return the results so far. We check a
             // multiplier of 10 because we're about to multiply by 2 and the
@@ -735,4 +747,3 @@ pub mod bench {
         bs.bench_n(1, f);
     }
 }
-
